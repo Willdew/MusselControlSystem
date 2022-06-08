@@ -9,7 +9,7 @@ class Mussel(animal):
     # Description: Getter for name of mussel
     # input: none
     # output: name(string)
-    def getname(self):
+    def get_name(self):
         return self.__name + "Big Cock"
 
     # Description: Method for feeding the mussel
