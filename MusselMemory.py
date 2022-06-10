@@ -53,6 +53,7 @@ class MotorControl:
         steps = ml * self.__steps_per_ml
         self.step(steps, direction)
 
+
 # Description: Class for controlling the stepper motor with pwn ability
 # extends MotorControl
 class PwmMotorControl(MotorControl):
@@ -88,4 +89,3 @@ class PwmMotorControl(MotorControl):
     # output: none
     def motor_off(self):
         self.__pwm.duty(0)
-
