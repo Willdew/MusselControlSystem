@@ -79,9 +79,9 @@ class PwmMotorControl(MotorControl):
     # output: none
     def motor_on(self, direction: str):
         if direction == "forward":
-            self.__step_pin.on()
+            self.__dir_pin.on()
         elif direction == "backward":
-            self.__step_pin.off()
+            self.__dir_pin.off()
         self.__pwm.duty(50)
 
     # Description: Method for turning off the motor
