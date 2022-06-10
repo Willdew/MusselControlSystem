@@ -91,17 +91,27 @@ class PwmMotorControl(MotorControl):
         self.__pwm.duty(0)
 
 
+# Description: Class for controlling the cooling system
 class PeltierControl:
+    # Description: Constructor
+    # input: fan_pin(int), peltier_pin(int), dir_pin(int), step_pin(int)
+    # output: none
     def __init__(self, fan_pin, peltier_pin, dir_pin, step_pin):
         self.__motor = PwmMotorControl(dir_pin, step_pin)
         self.__fan_pin = Pin(fan_pin, Pin.OUT)
         self.__peltier_pin = Pin(peltier_pin, Pin.OUT)
 
+    # Description: Method for turning on the cooling system
+    # input: none
+    # output: none
     def cooling_on(self):
         self.__fan_pin.on()
         self.__peltier_pin.on()
         self.__motor.motor_on("forward")
 
+    # Description: Method for turning off the cooling system
+    # input: none
+    # output: none
     def cooling_off(self):
         self.__fan_pin.off()
         self.__peltier_pin.off()
