@@ -89,3 +89,20 @@ class PwmMotorControl(MotorControl):
     # output: none
     def motor_off(self):
         self.__pwm.duty(0)
+
+
+class PeltierControl:
+    def __init__(self, fan_pin, peltier_pin, dir_pin, step_pin):
+        self.__motor = PwmMotorControl(dir_pin, step_pin)
+        self.__fan_pin = Pin(fan_pin, Pin.OUT)
+        self.__peltier_pin = Pin(peltier_pin, Pin.OUT)
+
+    def cooling_on(self):
+        self.__fan_pin.on()
+        self.__peltier_pin.on()
+        self.__motor.motor_on("forward")
+
+    def cooling_off(self):
+        self.__fan_pin.off()
+        self.__peltier_pin.off()
+        self.__motor.motor_off()
