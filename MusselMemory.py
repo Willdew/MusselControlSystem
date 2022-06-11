@@ -119,6 +119,8 @@ class PeltierControl:
         self.__fan_pin.off()
         self.__peltier_pin.off()
         self.__motor.motor_off()
+
+
 # Description: This class is able to read the data of an OD sensor
 class ODSensor:
     # Constructor
@@ -173,4 +175,39 @@ class LED:
     # output: none
     def off(self):
         self.__LED.value(0)
+
+
+# THIS IS A PLACEHOLDER CLASS FOR READING A TEMPERATURE SENSOR
+class Temp:
+    def read_temp(self):
+        return 2
+
+
+# Description: This class is able to control the cooling system
+class PID:
+    def __init__(self, temp_sensor: Temp, peltier_element, kp, ki, kd, set_temp):
+        self.__temp_sensor = temp_sensor
+        self.__peltier_element = peltier_element
+        self.__Kp = kp
+        self.__Ki = ki
+        self.__Kd = kd
+        self.__set_temp = set_temp
+
+    def set_temp(self, temp):
+        self.__set_temp = temp
+
+    def get_set_temp(self):
+        return self.__set_temp
+
+    def get_temp(self):
+        return self.__temp_sensor.read_temp()
+
+    def set_PID(self, kp, ki, kd):
+        self.__Kp = kp
+        self.__Ki = ki
+        self.__Kd = kd
+
+    def get_PID(self):
+        return self.__Kp, self.__Ki, self.__Kd
+
 
