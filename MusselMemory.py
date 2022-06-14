@@ -170,7 +170,11 @@ class ODSensor:
         for _ in range(20):
             big.append(self.PD.read())
         a = statistics.mean(big)
-        return a
+
+        #CHANGE CALIBRATION HERE
+        concentration = -14635*a + 10**7
+        #CHANGE CALIBRATION HERE
+        return concentration
 
 
 # Description: This class is able to control an LED
