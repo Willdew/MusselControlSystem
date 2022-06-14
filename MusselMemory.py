@@ -24,6 +24,18 @@ class MotorControl:
         self.__MutEx = _thread.allocate_lock()
         self.__steps_per_ml = 300
 
+
+# Description: Class for controlling a motor with solenoid valves
+class DirectionalMotorControl(MotorControl):
+
+    # Description: Constructor
+    # input: dir_pin(int), step_pin(int), sol_pin1:(int), sol_pin2:(int)
+    # output: none
+    def __init__(self, dir_pin, step_pin, sol_pin1, sol_pin2):
+        super().__init__(dir_pin, step_pin)
+        self.__sol_pin1 = LED(sol_pin1)
+        self.__sol_pin2 = LED(sol_pin2)
+
     # Description setter for steps per milliliter
     # input: steps_per_ml(int)
     # output: none
@@ -33,8 +45,16 @@ class MotorControl:
     # Description: internal method for moving the motor
     # input: steps(int), direction(string)
     # output: none
-    def __step(self, steps: int, direction: str):
+    def __step(self, steps: int, direction: str, valve: int):
         self.__MutEx.acquire()
+        if valve == 1:
+            self.__sol_pin1.on()
+            self.__sol_pin2.off()
+        elif valve == 2:
+            self.__sol_pin1.off()
+            self.__sol_pin2.on()
+        else:
+            steps = 0
         if direction == "forward":
             self.__dir_pin.on()
         elif direction == "backward":
@@ -44,20 +64,22 @@ class MotorControl:
             time.sleep(0.001)
             self.__step_pin.off()
             time.sleep(0.001)
+        self.__sol_pin1.off()
+        self.__sol_pin2.off()
         self.__MutEx.release()
 
     # Description: method for starting thread for moving the motor
     # input: steps(int), direction(string)
     # output: none
-    def step(self, steps: int, direction: str):
-        _thread.start_new_thread(self.__step, (steps, direction))
+    def step(self, steps: int, direction: str, valve: int):
+        _thread.start_new_thread(self.__step, (steps, direction, valve))
 
     # Description: Method for moving a certain amount of milliliter
     # input: ml(int), direction(string)
     # output: none
-    def step_ml(self, ml: int, direction: str):
+    def step_ml(self, ml: int, direction: str, valve: int):
         steps = ml * self.__steps_per_ml
-        self.step(steps, direction)
+        self.step(steps, direction, valve)
 
 
 # Description: Class for controlling the stepper motor with pwn ability
