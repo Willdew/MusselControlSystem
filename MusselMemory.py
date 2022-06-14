@@ -7,6 +7,7 @@ import _thread
 import time
 import machine
 import statistics
+from simple_pid import PID
 
 
 # Description: base class for controlling the A4988 stepper motor controller
@@ -184,14 +185,16 @@ class Temp:
 
 
 # Description: This class is able to control the cooling system
-class PID:
-    def __init__(self, temp_sensor: Temp, peltier_element, kp, ki, kd, set_temp):
+class Pid:
+    def __init__(self, temp_sensor: Temp, peltier_element, kp, ki, kd, set_temp, timer):
         self.__temp_sensor = temp_sensor
         self.__peltier_element = peltier_element
         self.__Kp = kp
         self.__Ki = ki
         self.__Kd = kd
         self.__set_temp = set_temp
+        self.__timer = timer
+        self.__pid = PID(self.__Kp, self.__Ki, self.__Kd, setpoint=self.__set_temp)
 
     def set_temp(self, temp):
         self.__set_temp = temp
@@ -202,12 +205,29 @@ class PID:
     def get_temp(self):
         return self.__temp_sensor.read_temp()
 
-    def set_PID(self, kp, ki, kd):
+    # note: since the PID is used in reverse mode, all values are negative
+    def set_pid(self, kp, ki, kd):
         self.__Kp = kp
         self.__Ki = ki
         self.__Kd = kd
 
-    def get_PID(self):
+    def get_pid(self):
         return self.__Kp, self.__Ki, self.__Kd
 
+    def get_timer(self):
+        return self.__timer
 
+    # period: 1000 = 1 second
+    def pid_timer(self):
+        tim0 = machine.Timer(0)
+        tim0.init(period=self.__timer * 1000, mode=machine.Timer.PERIODIC, callback=lambda t: update_pid())
+
+    # Description: this method runs the PID algorithm and turns the cooling system on or off
+    def update_pid(self):
+        output = self.__pid(self.get_temp())
+        self.__pid.output_limits(0, 10)
+
+        if output > 3:
+            self.__peltier_element.cooling_on()
+        else:
+            self.__peltier_element.cooling_off()
