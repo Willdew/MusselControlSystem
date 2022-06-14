@@ -450,3 +450,29 @@ class Pid:
             self.__peltier_element.cooling_on()
         else:
             self.__peltier_element.cooling_off()
+class AlgaeFeeder:
+    def __init__(self, od_sensor: ODSensor, motor_controller: DirectionalMotorControl):
+        self.__od_sensor = od_sensor
+        self.__motor_controller = motor_controller
+
+    def read(self):
+        return self.__od_sensor.measure_OD()
+
+    def calculate(self):
+        #insert function for calculating how much shuld be fed
+        return self.read()
+
+
+    def feed(self):
+        self.__motor_controller.step_ml(self.calculate, "forward",2)
+
+    def start(self):
+        while True:
+
+            tic = time.perf_counter()
+            while True:
+                toc = time.perf_counter()
+                tictoc = toc - tic
+                if tictoc < 30*60:
+                    self.feed()
+                    break
