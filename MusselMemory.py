@@ -405,13 +405,13 @@ class Pid:
         self.__Kd = kd
         self.__set_temp = set_temp
         self.__timer = timer
-        self.__pid = PID(self.__Kp, self.__Ki, self.__Kd, setpoint=self.__set_temp)
-        self.__pid.output_limits(0, 10)
+        self.__pid = PID(-self.__Kp, -self.__Ki, -self.__Kd, setpoint=self.__set_temp)
+        self.__pid.output_limits = (0, 10)
         self.PID_timer = machine.Timer(0)
 
     def set_temp(self, temp):
         self.__set_temp = temp
-        self.__pid = PID(self.__Kp, self.__Ki, self.__Kd, setpoint=self.__set_temp)
+        self.__pid = PID(-self.__Kp, -self.__Ki, -self.__Kd, setpoint=self.__set_temp)
 
     def get_set_temp(self):
         return self.__set_temp
@@ -424,7 +424,7 @@ class Pid:
         self.__Kp = kp
         self.__Ki = ki
         self.__Kd = kd
-        self.__pid = PID(self.__Kp, self.__Ki, self.__Kd, setpoint=self.__set_temp)
+        self.__pid = PID(-self.__Kp, -self.__Ki, -self.__Kd, setpoint=self.__set_temp)
 
     def get_pid(self):
         return self.__Kp, self.__Ki, self.__Kd
@@ -434,7 +434,6 @@ class Pid:
 
     def set_timer(self, timer):
         self.__timer = timer
-        self.__pid = PID(self.__Kp, self.__Ki, self.__Kd, setpoint=self.__set_temp)
 
     # period: 1000 = 1 second
     def init_PID(self):
