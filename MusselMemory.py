@@ -123,16 +123,15 @@ class PeltierControl:
     # Description: Constructor
     # input: fan_pin(int), peltier_pin(int), dir_pin(int), step_pin(int)
     # output: none
-    def __init__(self, fan_pin, peltier_pin, dir_pin, step_pin):
+    def __init__(self, peltier_pin, dir_pin, step_pin):
         self.__motor = PwmMotorControl(dir_pin, step_pin)
-        self.__fan_pin = Pin(fan_pin, Pin.OUT)
         self.__peltier_pin = Pin(peltier_pin, Pin.OUT)
 
     # Description: Method for turning on the cooling system
     # input: none
     # output: none
     def cooling_on(self):
-        self.__fan_pin.on()
+
         self.__peltier_pin.on()
         self.__motor.motor_on("forward")
 
@@ -140,7 +139,7 @@ class PeltierControl:
     # input: none
     # output: none
     def cooling_off(self):
-        self.__fan_pin.off()
+
         self.__peltier_pin.off()
         self.__motor.motor_off()
 
@@ -489,9 +488,9 @@ class AlgaeFeeder:
     def feed(self):
         self.__motor_controller.step_ml(self.calculate_feed(), "forward", 2)
 
-    def start_feeder(self):
+    def init_feeder(self):
         self.feed_timer.init(period=1800 * 1000, mode=machine.Timer.PERIODIC,
                              callback=lambda t: self.feed())
 
-    def stop_feeder(self):
+    def deinit_feeder(self):
         self.feed_timer.deinit()
