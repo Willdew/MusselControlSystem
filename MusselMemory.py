@@ -169,7 +169,7 @@ class ODSensor:
     def measure_OD(self):
         big = []
         for _ in range(20):
-            big.append(self.PD.read)
+            big.append(self.PD.read())
         a = statistics.mean(big)
         return a
 
