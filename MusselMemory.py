@@ -171,9 +171,9 @@ class ODSensor:
             big.append(self.PD.read())
         a = statistics.mean(big)
 
-        #CHANGE CALIBRATION HERE
-        concentration = -14635*a + 10**7
-        #CHANGE CALIBRATION HERE
+        # CHANGE CALIBRATION HERE
+        concentration = -14635 * a + 10 ** 7
+        # CHANGE CALIBRATION HERE
         return concentration
 
 
@@ -205,6 +205,7 @@ class LED:
         self.__LED.value(0)
 
 
+# Description: This class is able to read the data of a thermometer
 class Thermometer:
     def __init__(self, pin):
         self.__adc_V_lookup = [0.02470588, 0.02058824, 0.04117647, 0.06176471, 0.06588235, 0.07, 0.07411765, 0.07720589,
@@ -456,6 +457,7 @@ class Pid:
             self.__peltier_element.cooling_off()
 
 
+# Description: This class is able to control the algae feeding process
 class AlgaeFeeder:
     def __init__(self, od_sensor: ODSensor, motor_controller: DirectionalMotorControl, food_amount, mussel_amount):
         self.__od_sensor = od_sensor
