@@ -371,7 +371,6 @@ class Thermometer:
         self.__adc.atten(ADC.ATTN_11DB)
         self.__adc.width(ADC.WIDTH_10BIT)
 
-
     def read_temp(self):
         raw_read = []
         # Collect NUM_SAMPLES
@@ -437,7 +436,8 @@ class Pid:
 
     # period: 1000 = 1 second
     def init_PID(self):
-        self.PID_timer.init(period=self.__timer * 1000, mode=machine.Timer.PERIODIC, callback=lambda t: self.update_pid())
+        self.PID_timer.init(period=self.__timer * 1000, mode=machine.Timer.PERIODIC,
+                            callback=lambda t: self.update_pid())
 
     def deinit_PID(self):
         self.PID_timer.deinit()
@@ -450,29 +450,42 @@ class Pid:
             self.__peltier_element.cooling_on()
         else:
             self.__peltier_element.cooling_off()
+
+
 class AlgaeFeeder:
-    def __init__(self, od_sensor: ODSensor, motor_controller: DirectionalMotorControl):
+    def __init__(self, od_sensor: ODSensor, motor_controller: DirectionalMotorControl, food_amount, mussel_amount):
         self.__od_sensor = od_sensor
         self.__motor_controller = motor_controller
+        self.feed_timer = machine.Timer(1)
+        self.__food_amount = food_amount
+        self.__mussel_amount = mussel_amount
 
-    def read(self):
+    def get_food_amount(self):
+        return self.__food_amount
+
+    def get_mussel_amount(self):
+        return self.__mussel_amount
+
+    def set_food_amount(self, food_amount):
+        self.__food_amount = food_amount
+
+    def set_mussel_amount(self, mussel_amount):
+        self.__mussel_amount = mussel_amount
+
+    def read_feed(self):
         return self.__od_sensor.measure_OD()
 
-    def calculate(self):
-        #insert function for calculating how much shuld be fed
-        return self.read()
-
+    def calculate_feed(self):
+        algae_per_liter = self.read_feed()
+        food = self.__food_amount * self.__mussel_amount
+        return (food / algae_per_liter) * 1000
 
     def feed(self):
-        self.__motor_controller.step_ml(self.calculate, "forward",2)
+        self.__motor_controller.step_ml(self.calculate_feed(), "forward", 2)
 
-    def start(self):
-        while True:
+    def start_feeder(self):
+        self.feed_timer.init(period=1800 * 1000, mode=machine.Timer.PERIODIC,
+                             callback=lambda t: self.feed())
 
-            tic = time.perf_counter()
-            while True:
-                toc = time.perf_counter()
-                tictoc = toc - tic
-                if tictoc < 30*60:
-                    self.feed()
-                    break
+    def stop_feeder(self):
+        self.feed_timer.deinit()
