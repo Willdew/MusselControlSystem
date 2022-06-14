@@ -370,7 +370,7 @@ class Thermometer:
         self.__adc = ADC(Pin(pin))
         self.__adc.atten(ADC.ATTN_11DB)
         self.__adc.width(ADC.WIDTH_10BIT)
-        self.timer
+
 
     def read_temp(self):
         raw_read = []
