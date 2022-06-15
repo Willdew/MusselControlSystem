@@ -150,11 +150,12 @@ class ODSensor:
     # Constructor
     # input: pin(int)
     # output: none
-    def __init__(self, pin):
+    def __init__(self, pin, motor: DirectionalMotorControl):
         self.__pin = pin
         self.PD = machine.ADC(machine.Pin(self.__pin))
         self.PD.atten(machine.ADC.ATTN_11DB)
         self.PD.width(machine.ADC.WIDTH_10BIT)
+        self.__motor = motor
 
     # Description: This method gets the value of the pin of the sensor
     # input: none
@@ -166,11 +167,16 @@ class ODSensor:
     # input: none
     # output: value(int)
     def measure_OD(self):
+        self.refresh_sample()
+        time.sleep(1)
         big = []
         for _ in range(20):
             big.append(self.PD.read())
         a = statistics.mean(big)
         return a
+
+    def refresh_sample(self):
+        self.__motor.step_ml(10, "forward", 1)
 
 
 # Description: This class is able to control an LED
@@ -371,7 +377,6 @@ class Thermometer:
         self.__adc.atten(ADC.ATTN_11DB)
         self.__adc.width(ADC.WIDTH_10BIT)
 
-
     def read_temp(self):
         raw_read = []
         # Collect NUM_SAMPLES
@@ -437,7 +442,8 @@ class Pid:
 
     # period: 1000 = 1 second
     def init_PID(self):
-        self.PID_timer.init(period=self.__timer * 1000, mode=machine.Timer.PERIODIC, callback=lambda t: self.update_pid())
+        self.PID_timer.init(period=self.__timer * 1000, mode=machine.Timer.PERIODIC,
+                            callback=lambda t: self.update_pid())
 
     def deinit_PID(self):
         self.PID_timer.deinit()
