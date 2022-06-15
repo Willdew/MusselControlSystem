@@ -168,7 +168,7 @@ class ODSensor:
     # output: value(int)
     def measure_OD(self):
         self.refresh_sample()
-        time.sleep(1)
+        time.sleep(2)
         big = []
         for _ in range(20):
             big.append(self.PD.read())
