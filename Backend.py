@@ -9,6 +9,7 @@ import machine
 import statistics
 from math import log
 from simple_pid import PID
+from umqttsimple import MQTTClient
 
 
 # Description: base class for controlling the A4988 stepper motor controller
@@ -131,7 +132,6 @@ class PeltierControl:
     # input: none
     # output: none
     def cooling_on(self):
-
         self.__peltier_pin.on()
         self.__motor.motor_on("forward")
 
@@ -139,7 +139,6 @@ class PeltierControl:
     # input: none
     # output: none
     def cooling_off(self):
-
         self.__peltier_pin.off()
         self.__motor.motor_off()
 
@@ -411,6 +410,7 @@ class Pid:
         self.__pid = PID(-self.__Kp, -self.__Ki, -self.__Kd, setpoint=self.__set_temp)
         self.__pid.output_limits = (0, 10)
         self.PID_timer = machine.Timer(0)
+        self.__cooling = 0
 
     def set_temp(self, temp):
         self.__set_temp = temp
@@ -452,8 +452,13 @@ class Pid:
 
         if output > 3:
             self.__peltier_element.cooling_on()
+            self.__cooling = 1
         else:
             self.__peltier_element.cooling_off()
+            self.__cooling = 0
+
+    def get_cooling(self):
+        return self.__cooling
 
 
 # Description: This class is able to control the algae feeding process
@@ -483,6 +488,7 @@ class AlgaeFeeder:
     def calculate_feed(self):
         algae_per_liter = self.read_feed()
         food = self.__food_amount * self.__mussel_amount
+
         return (food / algae_per_liter) * 1000
 
     def feed(self):
@@ -494,3 +500,46 @@ class AlgaeFeeder:
 
     def deinit_feeder(self):
         self.feed_timer.deinit()
+
+
+# WEB SERVER INTEGRATION
+class Client:
+    def __init__(self, client, cooler: Pid, feeder: AlgaeFeeder):
+        self.__cooler = cooler
+        self.__feeder = feeder
+        self.__client = client
+        self.__client.set_callback(self.callback_handler)
+        self.__client.connect(clean_session=True)
+        self.__algae_increment = 0
+        self.upload_timer = machine.Timer(2)
+
+    def update_client(self):
+        # Publish
+        self.__algae_increment += 1
+        self.__client.publish("scottienoy/feed/Temperature", str(self.__cooler.get_temp()))
+        self.__client.publish("scottienoy/feed/peltier-status", str(self.__cooler.get_cooling()))
+        # Add leak detection
+
+        if self.__algae_increment == 32:
+            self.__client.publish("scottienoy/feed/algae-growth", str(self.__feeder.read_feed()))
+            self.__algae_increment = 0
+
+        # Subscribe
+        self.__client.subscribe("scottienoy/feed/food-amount", )
+        self.__client.subscribe("scottienoy/feed/mussel-amount", )
+        self.__client.subscribe("scottienoy/feed/pid-temp", )
+
+    def callback_handler(self, topic, message):
+        if topic == "scottienoy/feed/food-amount":
+            self.__feeder.set_food_amount(int(message))
+
+        elif topic == "scottienoy/feed/mussel-amount":
+            self.__feeder.set_mussel_amount(int(message))
+
+        elif topic == "scottienoy/feed/pid-temp":
+            self.__cooler.set_temp(int(message))
+
+    def init_client(self):
+        self.upload_timer.init(period=20*1000, mode=machine.Timer.PERIODIC,
+                               callback=lambda t: self.update_client())
+
