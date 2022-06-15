@@ -173,7 +173,11 @@ class ODSensor:
         for _ in range(20):
             big.append(self.PD.read())
         a = statistics.mean(big)
-        return a
+
+        # CHANGE CALIBRATION HERE
+        concentration = -14635 * a + 10 ** 7
+        # CHANGE CALIBRATION HERE
+        return concentration
 
     def refresh_sample(self):
         self.__motor.step_ml(10, "forward", 1)
@@ -207,6 +211,7 @@ class LED:
         self.__LED.value(0)
 
 
+# Description: This class is able to read the data of a thermometer
 class Thermometer:
     def __init__(self, pin):
         self.__adc_V_lookup = [0.02470588, 0.02058824, 0.04117647, 0.06176471, 0.06588235, 0.07, 0.07411765, 0.07720589,
@@ -456,3 +461,43 @@ class Pid:
             self.__peltier_element.cooling_on()
         else:
             self.__peltier_element.cooling_off()
+
+
+# Description: This class is able to control the algae feeding process
+class AlgaeFeeder:
+    def __init__(self, od_sensor: ODSensor, motor_controller: DirectionalMotorControl, food_amount, mussel_amount):
+        self.__od_sensor = od_sensor
+        self.__motor_controller = motor_controller
+        self.feed_timer = machine.Timer(1)
+        self.__food_amount = food_amount
+        self.__mussel_amount = mussel_amount
+
+    def get_food_amount(self):
+        return self.__food_amount
+
+    def get_mussel_amount(self):
+        return self.__mussel_amount
+
+    def set_food_amount(self, food_amount):
+        self.__food_amount = food_amount
+
+    def set_mussel_amount(self, mussel_amount):
+        self.__mussel_amount = mussel_amount
+
+    def read_feed(self):
+        return self.__od_sensor.measure_OD()
+
+    def calculate_feed(self):
+        algae_per_liter = self.read_feed()
+        food = self.__food_amount * self.__mussel_amount
+        return (food / algae_per_liter) * 1000
+
+    def feed(self):
+        self.__motor_controller.step_ml(self.calculate_feed(), "forward", 2)
+
+    def start_feeder(self):
+        self.feed_timer.init(period=1800 * 1000, mode=machine.Timer.PERIODIC,
+                             callback=lambda t: self.feed())
+
+    def stop_feeder(self):
+        self.feed_timer.deinit()
