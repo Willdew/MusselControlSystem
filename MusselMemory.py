@@ -150,11 +150,12 @@ class ODSensor:
     # Constructor
     # input: pin(int)
     # output: none
-    def __init__(self, pin):
+    def __init__(self, pin, motor: DirectionalMotorControl):
         self.__pin = pin
         self.PD = machine.ADC(machine.Pin(self.__pin))
         self.PD.atten(machine.ADC.ATTN_11DB)
         self.PD.width(machine.ADC.WIDTH_10BIT)
+        self.__motor = motor
 
     # Description: This method gets the value of the pin of the sensor
     # input: none
@@ -166,6 +167,8 @@ class ODSensor:
     # input: none
     # output: value(int)
     def measure_OD(self):
+        self.refresh_sample()
+        time.sleep(2)
         big = []
         for _ in range(20):
             big.append(self.PD.read())
@@ -175,6 +178,9 @@ class ODSensor:
         concentration = -14635 * a + 10 ** 7
         # CHANGE CALIBRATION HERE
         return concentration
+
+    def refresh_sample(self):
+        self.__motor.step_ml(10, "forward", 1)
 
 
 # Description: This class is able to control an LED
