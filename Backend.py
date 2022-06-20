@@ -5,6 +5,7 @@ import time
 from machine import *
 import _thread
 import time
+from utime import sleep_us
 import machine
 import statistics
 from math import log
@@ -22,7 +23,7 @@ class MotorControl:
         self.__dir_pin = Pin(dir_pin, Pin.OUT)
         self.__step_pin = Pin(step_pin, Pin.OUT)
         self.__MutEx = _thread.allocate_lock()
-        self.__steps_per_ml = 300
+        self.__steps_per_ml = 900
 
 
 # Description: Class for controlling a motor with solenoid valves
@@ -42,11 +43,24 @@ class DirectionalMotorControl(MotorControl):
     def set_steps_per_ml(self, steps_per_ml: int):
         self.__steps_per_ml = steps_per_ml
 
+    def open_solenoid(self, valve: int):
+        if valve == 1:
+            self.__sol_pin1.on()
+            self.__sol_pin2.off()
+        elif valve == 2:
+            self.__sol_pin1.off()
+            self.__sol_pin2.on()
+
+    def close_solenoid(self):
+        self.__sol_pin1.off()
+        self.__sol_pin2.off()
+
     # Description: internal method for moving the motor
     # input: steps(int), direction(string)
     # output: none
     def __step(self, steps: int, direction: str, valve: int):
         self.__MutEx.acquire()
+
         if valve == 1:
             self.__sol_pin1.on()
             self.__sol_pin2.off()
@@ -61,9 +75,10 @@ class DirectionalMotorControl(MotorControl):
             self.__dir_pin.off()
         for _ in range(steps):
             self.__step_pin.on()
-            time.sleep(0.001)
+            sleep_us(1000)
             self.__step_pin.off()
-            time.sleep(0.001)
+            sleep_us(1000)
+
         self.__sol_pin1.off()
         self.__sol_pin2.off()
         self.__MutEx.release()
@@ -74,11 +89,13 @@ class DirectionalMotorControl(MotorControl):
     def step(self, steps: int, direction: str, valve: int):
         _thread.start_new_thread(self.__step, (steps, direction, valve))
 
+    #         self.__step(steps,direction,valve)
+
     # Description: Method for moving a certain amount of milliliter
     # input: ml(int), direction(string)
     # output: none
     def step_ml(self, ml: int, direction: str, valve: int):
-        steps = ml * self.__steps_per_ml
+        steps = int(ml) * int(self.__steps_per_ml)
         self.step(steps, direction, valve)
 
 
@@ -91,7 +108,7 @@ class PwmMotorControl(MotorControl):
     # output: none
     def __init__(self, dir_pin, step_pin):
         super().__init__(dir_pin, step_pin)
-        self.__motor_speed = 1000
+        self.__motor_speed = 800
         self.__pwm_pin = Pin(step_pin, Pin.OUT)
         self.__pwm = PWM(self.__pwm_pin, freq=self.__motor_speed, duty=0)
 
@@ -124,22 +141,27 @@ class PeltierControl:
     # Description: Constructor
     # input: fan_pin(int), peltier_pin(int), dir_pin(int), step_pin(int)
     # output: none
-    def __init__(self, peltier_pin, dir_pin, step_pin):
+    def __init__(self, peltier_pin, fan_pin, dir_pin, step_pin):
         self.__motor = PwmMotorControl(dir_pin, step_pin)
         self.__peltier_pin = Pin(peltier_pin, Pin.OUT)
+        self.__fan_pin = Pin(fan_pin, Pin.OUT)
 
     # Description: Method for turning on the cooling system
     # input: none
     # output: none
+    # fan and peltier should be inverted due to relay
     def cooling_on(self):
-        self.__peltier_pin.on()
+        self.__peltier_pin.off()
+        self.__fan_pin.on()
         self.__motor.motor_on("forward")
 
     # Description: Method for turning off the cooling system
     # input: none
     # output: none
     def cooling_off(self):
-        self.__peltier_pin.off()
+        self.__peltier_pin.on()
+        self.__fan_pin.off()
+
         self.__motor.motor_off()
 
 
@@ -172,7 +194,7 @@ class ODSensor:
         # CHANGE CALIBRATION HERE
         concentration = -14635 * a + 10 ** 7
         # CHANGE CALIBRATION HERE
-        return concentration
+        return a
 
 
 # Description: This class is able to control an LED
@@ -366,7 +388,7 @@ class Thermometer:
         self.__NOM_RES = 10000
         self.__SER_RES = 9820
         self.__TEMP_NOM = 25
-        self.__NUM_SAMPLES = 25
+        self.__NUM_SAMPLES = 500
         self.__THERM_B_COEFF = 3950
         self.__ADC_MAX = 1023
         self.__ADC_Vmax = 3.15
@@ -382,13 +404,13 @@ class Thermometer:
 
         # Average of the NUM_SAMPLES and look it up in the table
         raw_average = sum(raw_read) / self.__NUM_SAMPLES
-        print('raw_avg = ' + str(raw_average))
-        print('V_measured = ' + str(self.__adc_V_lookup[round(raw_average)]))
+        #         print('raw_avg = ' + str(raw_average))
+        #         print('V_measured = ' + str(self.__adc_V_lookup[round(raw_average)]))
 
         # Convert to resistance
         raw_average = self.__ADC_MAX * self.__adc_V_lookup[round(raw_average)] / self.__ADC_Vmax
         resistance = (self.__SER_RES * raw_average) / (self.__ADC_MAX - raw_average)
-        print('Thermistor resistance: {} ohms'.format(resistance))
+        #         print('Thermistor resistance: {} ohms'.format(resistance))
 
         # Convert to temperature
         steinhart = log(resistance / self.__NOM_RES) / self.__THERM_B_COEFF
@@ -408,9 +430,11 @@ class Pid:
         self.__set_temp = set_temp
         self.__timer = timer
         self.__pid = PID(-self.__Kp, -self.__Ki, -self.__Kd, setpoint=self.__set_temp)
-        self.__pid.output_limits = (0, 10)
+        #         self.__pid.output_limits = (0, 10)
         self.PID_timer = machine.Timer(0)
         self.__cooling = 0
+        self.__file = open("pid readings.txt", "w+")
+        self.__time = 0
 
     def set_temp(self, temp):
         self.__set_temp = temp
@@ -440,6 +464,7 @@ class Pid:
 
     # period: 1000 = 1 second
     def init_PID(self):
+        self.update_pid()
         self.PID_timer.init(period=self.__timer * 1000, mode=machine.Timer.PERIODIC,
                             callback=lambda t: self.update_pid())
 
@@ -448,9 +473,14 @@ class Pid:
 
     # Description: this method runs the PID algorithm and turns the cooling system on or off
     def update_pid(self):
+        self.__time += 1
         output = self.__pid(self.get_temp())
+        print("PID Value: " + str(output))
+        print("Temperature: " + str(self.get_temp()))
+        print("Wanted Temp: " + str(self.get_set_temp()))
+        self.__file.write(str(output) + "," + str(self.__time) + "\n")
 
-        if output > 3:
+        if output >= 3:
             self.__peltier_element.cooling_on()
             self.__cooling = 1
         else:
@@ -463,12 +493,14 @@ class Pid:
 
 # Description: This class is able to control the algae feeding process
 class AlgaeFeeder:
-    def __init__(self, od_sensor: ODSensor, motor_controller: DirectionalMotorControl, food_amount, mussel_amount):
+    def __init__(self, od_sensor: ODSensor, led: LED, motor_controller: DirectionalMotorControl, food_amount,
+                 mussel_amount):
         self.__od_sensor = od_sensor
         self.__motor_controller = motor_controller
         self.feed_timer = machine.Timer(1)
         self.__food_amount = food_amount
         self.__mussel_amount = mussel_amount
+        self.__led = led
 
     def get_food_amount(self):
         return self.__food_amount
@@ -488,13 +520,17 @@ class AlgaeFeeder:
     def calculate_feed(self):
         algae_per_liter = self.read_feed()
         food = self.__food_amount * self.__mussel_amount
-
-        return (food / algae_per_liter) * 1000
+        try:
+            return (food / algae_per_liter) * 1000
+        except:
+            return 0
 
     def feed(self):
-        self.__motor_controller.step_ml(self.calculate_feed(), "forward", 2)
+        self.__motor_controller.step_ml(self.calculate_feed(), "backward", 2)
 
     def init_feeder(self):
+        self.__led.on()
+        self.feed()
         self.feed_timer.init(period=1800 * 1000, mode=machine.Timer.PERIODIC,
                              callback=lambda t: self.feed())
 
@@ -509,37 +545,83 @@ class Client:
         self.__feeder = feeder
         self.__client = client
         self.__client.set_callback(self.callback_handler)
-        self.__client.connect(clean_session=True)
         self.__algae_increment = 0
         self.upload_timer = machine.Timer(2)
 
+        self.__file = open("readings.txt", "w+")
+
     def update_client(self):
-        # Publish
-        self.__algae_increment += 1
-        self.__client.publish("scottienoy/feed/Temperature", str(self.__cooler.get_temp()))
-        self.__client.publish("scottienoy/feed/peltier-status", str(self.__cooler.get_cooling()))
-        # Add leak detection
+        try:
+            # Subscribe
+            self.__client.check_msg()
+            # Publish
+            # self.__algae_increment += 1
+            self.__client.publish(b"scottienoy/feeds/Temperature", str(self.__cooler.get_temp()))
+            self.__client.publish(b"scottienoy/feeds/peltier-status", str(self.__cooler.get_cooling()))
+            # Add leak detection
 
-        if self.__algae_increment == 32:
-            self.__client.publish("scottienoy/feed/algae-growth", str(self.__feeder.read_feed()))
-            self.__algae_increment = 0
+            if self.__algae_increment == 0:
+                self.__client.publish(b"scottienoy/feeds/algae-growth", str(self.__feeder.read_feed()))
+                self.__algae_increment = 0
+            self.__file.write(str(self.__cooler.get_temp()) + " " + str(self.__cooler.get_cooling()) + " " + str(
+                self.__feeder.read_feed()) + " " + str(self.__feeder.get_food_amount()) + " " + str(
+                self.__feeder.get_mussel_amount()) + " " + str(self.__cooler.get_set_temp()) + " " + "1" "\n")
 
-        # Subscribe
-        self.__client.subscribe("scottienoy/feed/food-amount", )
-        self.__client.subscribe("scottienoy/feed/mussel-amount", )
-        self.__client.subscribe("scottienoy/feed/pid-temp", )
+        except:
+            print("Not connected")
+            if self.__algae_increment == 0:
+                self.__algae_increment = 0
+            self.__file.write(str(self.__cooler.get_temp()) + " " + str(self.__cooler.get_cooling()) + " " + str(
+                self.__feeder.read_feed()) + " " + str(self.__feeder.get_food_amount()) + " " + str(
+                self.__feeder.get_mussel_amount()) + " " + str(self.__cooler.get_set_temp()) + "0" "\n")
 
     def callback_handler(self, topic, message):
-        if topic == "scottienoy/feed/food-amount":
+        if topic == b"scottienoy/feeds/food-amount":
             self.__feeder.set_food_amount(int(message))
 
-        elif topic == "scottienoy/feed/mussel-amount":
+        elif topic == b"scottienoy/feeds/mussel-amount":
             self.__feeder.set_mussel_amount(int(message))
 
-        elif topic == "scottienoy/feed/pid-temp":
-            self.__cooler.set_temp(int(message))
+        elif topic == b"scottienoy/feeds/pid-temp":
+            self.__cooler.set_temp(float(message))
 
     def init_client(self):
-        self.upload_timer.init(period=20*1000, mode=machine.Timer.PERIODIC,
+        try:
+            self.__client.connect(clean_session=True)
+            self.__client.subscribe(b"scottienoy/feeds/food-amount")
+            self.__client.subscribe(b"scottienoy/feeds/mussel-amount")
+            self.__client.subscribe(b"scottienoy/feeds/pid-temp")
+
+            # Publish
+            # self.__algae_increment += 1
+            self.__client.publish(b"scottienoy/feeds/Temperature", str(self.__cooler.get_temp()))
+            self.__client.publish(b"scottienoy/feeds/peltier-status", str(self.__cooler.get_cooling()))
+            self.__client.publish(b"scottienoy/feeds/pid-temp", str(self.__cooler.get_set_temp()))
+            self.__client.publish(b"scottienoy/feeds/food-amount", str(self.__feeder.get_food_amount()))
+            self.__client.publish(b"scottienoy/feeds/mussel-amount", str(self.__feeder.get_mussel_amount()))
+
+            # Add leak detection
+
+            if self.__algae_increment == 0:
+                #                 self.__feeder.feed()
+                self.__client.publish(b"scottienoy/feeds/algae-growth", str(self.__feeder.read_feed()))
+                self.__algae_increment = 0
+            self.__file.write(str(self.__cooler.get_temp()) + " " + str(self.__cooler.get_cooling()) + " " + str(
+                self.__feeder.read_feed()) + " " + str(self.__feeder.get_food_amount()) + " " + str(
+                self.__feeder.get_mussel_amount()) + " " + str(self.__cooler.get_set_temp()) + " " + "1" "\n")
+
+        except:
+            print("Not connected")
+            if self.__algae_increment == 0:
+                #                 self.__feeder.feed()
+                self.__algae_increment = 0
+            self.__file.write(str(self.__cooler.get_temp()) + " " + str(self.__cooler.get_cooling()) + " " + str(
+                self.__feeder.read_feed()) + " " + str(self.__feeder.get_food_amount()) + " " + str(
+                self.__feeder.get_mussel_amount()) + " " + str(self.__cooler.get_set_temp()) + " " + "0" "\n")
+
+        self.upload_timer.init(period=15 * 1000, mode=machine.Timer.PERIODIC,
                                callback=lambda t: self.update_client())
+
+
+
 
