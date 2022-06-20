@@ -141,10 +141,9 @@ class PeltierControl:
     # Description: Constructor
     # input: fan_pin(int), peltier_pin(int), dir_pin(int), step_pin(int)
     # output: none
-    def __init__(self, peltier_pin, fan_pin, dir_pin, step_pin):
+    def __init__(self, peltier_pin, dir_pin, step_pin):
         self.__motor = PwmMotorControl(dir_pin, step_pin)
         self.__peltier_pin = Pin(peltier_pin, Pin.OUT)
-        self.__fan_pin = Pin(fan_pin, Pin.OUT)
 
     # Description: Method for turning on the cooling system
     # input: none
@@ -152,7 +151,6 @@ class PeltierControl:
     # fan and peltier should be inverted due to relay
     def cooling_on(self):
         self.__peltier_pin.off()
-        self.__fan_pin.on()
         self.__motor.motor_on("forward")
 
     # Description: Method for turning off the cooling system
@@ -160,8 +158,6 @@ class PeltierControl:
     # output: none
     def cooling_off(self):
         self.__peltier_pin.on()
-        self.__fan_pin.off()
-
         self.__motor.motor_off()
 
 
@@ -584,6 +580,9 @@ class Client:
 
         elif topic == b"scottienoy/feeds/pid-temp":
             self.__cooler.set_temp(float(message))
+
+    def leak(self):
+        self.__client.publish(b"scottienoy/feeds/leak", str(1)
 
     def init_client(self):
         try:

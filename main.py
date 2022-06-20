@@ -1,4 +1,5 @@
 from backend import *
+import machine
 
 # Pin definitions
 peltier_pin = 25
@@ -14,6 +15,7 @@ od_pin = 34
 led_pin = 13
 feed_per_mussel_per_30_min = 500
 mussel_amount = 5
+leak_pin = 14
 
 # Initialize objects for main instance constructors
 od_sensor = ODSensor(od_pin)
@@ -31,3 +33,12 @@ web_handler = Client(client, cooler, feeder)
 cooler.init_PID()
 feeder.init_feeder()
 web_handler.init_client()
+
+# Interrupt for leak detection
+def leak_callback(p):
+    web_handler.leak()
+
+leak = pin = machine.Pin(leak_pin, machine.Pin.IN)
+leak.irq(trigger=machine.Pin.IRQ_FALLING, handler=leak_callback)
+
+
