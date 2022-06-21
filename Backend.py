@@ -62,11 +62,11 @@ class DirectionalMotorControl(MotorControl):
         self.__MutEx.acquire()
 
         if valve == 1:
-            self.__sol_pin1.on()
-            self.__sol_pin2.off()
-        elif valve == 2:
             self.__sol_pin1.off()
             self.__sol_pin2.on()
+        elif valve == 2:
+            self.__sol_pin1.on()
+            self.__sol_pin2.off()
         else:
             steps = 0
         if direction == "forward":
@@ -79,8 +79,8 @@ class DirectionalMotorControl(MotorControl):
             self.__step_pin.off()
             sleep_us(1000)
 
-        self.__sol_pin1.off()
-        self.__sol_pin2.off()
+        self.__sol_pin1.on()
+        self.__sol_pin2.on()
         self.__MutEx.release()
 
     # Description: method for starting thread for moving the motor
@@ -514,10 +514,14 @@ class AlgaeFeeder:
         return self.__od_sensor.measure_OD()
 
     def calculate_feed(self):
-        algae_per_liter = self.read_feed()
+        algae_per_ml = self.read_feed()
         food = self.__food_amount * self.__mussel_amount
         try:
-            return (food / algae_per_liter) * 1000
+            if (food / algae_per_ml) > 30:
+                return 30
+            else:
+                return (food / algae_per_ml)
+
         except:
             return 0
 
@@ -551,24 +555,23 @@ class Client:
             # Subscribe
             self.__client.check_msg()
             # Publish
-            # self.__algae_increment += 1
+            self.__algae_increment += 1
             self.__client.publish(b"scottienoy/feeds/Temperature", str(self.__cooler.get_temp()))
             self.__client.publish(b"scottienoy/feeds/peltier-status", str(self.__cooler.get_cooling()))
-            # Add leak detection
 
-            if self.__algae_increment == 0:
+            if self.__algae_increment == 30:
                 self.__client.publish(b"scottienoy/feeds/algae-growth", str(self.__feeder.read_feed()))
                 self.__algae_increment = 0
-            self.__file.write(str(self.__cooler.get_temp()) + " " + str(self.__cooler.get_cooling()) + " " + str(
-                self.__feeder.read_feed()) + " " + str(self.__feeder.get_food_amount()) + " " + str(
+            self.__file.write(str(self.__cooler.get_temp()) + " " + str(self.__cooler.get_cooling()) + " " + " " + str(
+                self.__feeder.get_food_amount()) + " " + str(
                 self.__feeder.get_mussel_amount()) + " " + str(self.__cooler.get_set_temp()) + " " + "1" "\n")
 
         except:
             print("Not connected")
             if self.__algae_increment == 0:
                 self.__algae_increment = 0
-            self.__file.write(str(self.__cooler.get_temp()) + " " + str(self.__cooler.get_cooling()) + " " + str(
-                self.__feeder.read_feed()) + " " + str(self.__feeder.get_food_amount()) + " " + str(
+            self.__file.write(str(self.__cooler.get_temp()) + " " + str(self.__cooler.get_cooling()) + " " + " " + str(
+                self.__feeder.get_food_amount()) + " " + str(
                 self.__feeder.get_mussel_amount()) + " " + str(self.__cooler.get_set_temp()) + "0" "\n")
 
     def callback_handler(self, topic, message):
@@ -582,7 +585,7 @@ class Client:
             self.__cooler.set_temp(float(message))
 
     def leak(self):
-        self.__client.publish(b"scottienoy/feeds/leak", str(1)
+        self.__client.publish(b"scottienoy/feeds/leak", str(1))
 
     def init_client(self):
         try:
@@ -614,13 +617,9 @@ class Client:
             if self.__algae_increment == 0:
                 #                 self.__feeder.feed()
                 self.__algae_increment = 0
-            self.__file.write(str(self.__cooler.get_temp()) + " " + str(self.__cooler.get_cooling()) + " " + str(
-                self.__feeder.read_feed()) + " " + str(self.__feeder.get_food_amount()) + " " + str(
+            self.__file.write(str(self.__cooler.get_temp()) + " " + str(self.__cooler.get_cooling()) + " " + " " + str(
+                self.__feeder.get_food_amount()) + " " + str(
                 self.__feeder.get_mussel_amount()) + " " + str(self.__cooler.get_set_temp()) + " " + "0" "\n")
 
         self.upload_timer.init(period=15 * 1000, mode=machine.Timer.PERIODIC,
                                callback=lambda t: self.update_client())
-
-
-
-

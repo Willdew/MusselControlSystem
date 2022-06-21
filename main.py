@@ -22,11 +22,11 @@ od_sensor = ODSensor(od_pin)
 led = LED(led_pin)
 feeder_motor = DirectionalMotorControl(feed_motor_dir, feed_motor_step, solenoid_recirculate, solenoid_feed)
 thermometer = Thermometer(thermometer_pin)
-peltier = PeltierControl(peltier_pin, fan_pin, cooler_dir, cooler_step)
-client = MQTTClient(user = "scottienoy", password = "aio_UmYX32orwHHY8Nwa6pKJCORY2or4", server = "io.adafruit.com", client_id = "fdd1bd8f-edf6-4382-be10-c3e4466ed935")
+peltier = PeltierControl(peltier_pin, cooler_dir, cooler_step)
+client = MQTTClient(user = "scottienoy", password = "INSERT PASSWORD", server = "io.adafruit.com", client_id = "fdd1bd8f-edf6-4382-be10-c3e4466ed935")
 
 # Initialize the main objects
-cooler = Pid(thermometer, peltier, 20, 0.1, 1, 20.8, 1)
+cooler = Pid(thermometer, peltier, 20, 0.1, 1, 18, 60)
 feeder = AlgaeFeeder(od_sensor, led, feeder_motor, feed_per_mussel_per_30_min, mussel_amount)
 web_handler = Client(client, cooler, feeder)
 
@@ -40,5 +40,6 @@ def leak_callback(p):
 
 leak = pin = machine.Pin(leak_pin, machine.Pin.IN)
 leak.irq(trigger=machine.Pin.IRQ_FALLING, handler=leak_callback)
+
 
 
